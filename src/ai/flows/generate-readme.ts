@@ -26,21 +26,29 @@ const getRepoContent = ai.defineTool(
   },
   async ({ userName, repoName }) => {
     try {
+      const headers: HeadersInit = {
+        'Accept': 'application/vnd.github.v3+json',
+        'X-GitHub-Api-Version': '2022-11-28'
+      };
+      if (process.env.GITHUB_ACCESS_TOKEN) {
+        headers['Authorization'] = `Bearer ${process.env.GITHUB_ACCESS_TOKEN}`;
+      }
+
       // 1. Get the default branch
-      const repoRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}`);
-      if (!repoRes.ok) throw new Error(`Failed to fetch repo details for ${userName}/${repoName}`);
+      const repoRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}`, { headers });
+      if (!repoRes.ok) throw new Error(`Failed to fetch repo details for ${userName}/${repoName}: ${await repoRes.text()}`);
       const repoData = await repoRes.json();
       const defaultBranch = repoData.default_branch;
 
       // 2. Get the commit SHA for the default branch
-      const branchRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}/branches/${defaultBranch}`);
-      if (!branchRes.ok) throw new Error(`Failed to fetch branch details for ${userName}/${repoName}`);
+      const branchRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}/branches/${defaultBranch}`, { headers });
+      if (!branchRes.ok) throw new Error(`Failed to fetch branch details for ${userName}/${repoName}: ${await branchRes.text()}`);
       const branchData = await branchRes.json();
       const treeSha = branchData.commit.commit.tree.sha;
 
       // 3. Get the file tree recursively
-      const treeRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}/git/trees/${treeSha}?recursive=1`);
-      if (!treeRes.ok) throw new Error(`Failed to fetch file tree for ${userName}/${repoName}`);
+      const treeRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}/git/trees/${treeSha}?recursive=1`, { headers });
+      if (!treeRes.ok) throw new Error(`Failed to fetch file tree for ${userName}/${repoName}: ${await treeRes.text()}`);
       const treeData = await treeRes.json();
 
       // Filter out binary files for brevity and extract file paths
@@ -53,7 +61,7 @@ const getRepoContent = ai.defineTool(
       const packageJsonNode = treeData.tree.find((node: any) => node.path === 'package.json');
 
       if (packageJsonNode && packageJsonNode.url) {
-        const packageJsonRes = await fetch(packageJsonNode.url);
+        const packageJsonRes = await fetch(packageJsonNode.url, { headers });
         if (packageJsonRes.ok) {
           const packageJsonData = await packageJsonRes.json();
           if (packageJsonData.content) {
@@ -68,9 +76,8 @@ const getRepoContent = ai.defineTool(
       };
     } catch (error) {
       console.error('Error fetching repository content:', error);
-      return {
-        tree: ['Error fetching repository structure.'],
-      };
+      // Re-throw to make the error visible in the UI
+      throw new Error(`Failed to fetch repository content. Please ensure the repository is public and your GitHub token (if provided) is valid. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 );
