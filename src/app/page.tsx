@@ -28,7 +28,7 @@ export default function Home() {
   const [username, setUsername] = useState("");
   const [repos, setRepos] = useState<Repo[]>([]);
   const [selectedRepoName, setSelectedRepoName] = useState("");
-  const [prompt, setPrompt] = useState("Create a professional and comprehensive README file, including sections for project description, usage, and contribution guidelines.");
+  const [prompt, setPrompt] = useState("Make the README for a modern web application. The tone should be professional but friendly. Emphasize the 'Getting Started' section to make it easy for new contributors.");
   const [readme, setReadme] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -162,7 +162,7 @@ export default function Home() {
                 <Label htmlFor="prompt">Prompt</Label>
                 <Textarea
                   id="prompt"
-                  placeholder="Describe the style and content for your README..."
+                  placeholder="Describe the style and content for your README... e.g., 'Make it fun and playful for a game project.' or 'Keep it very formal and detailed for a corporate SDK.'"
                   value={prompt}
                   onChange={(e) => setPrompt(e.target.value)}
                   rows={4}

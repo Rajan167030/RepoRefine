@@ -110,29 +110,31 @@ const generateReadmePrompt = ai.definePrompt({
   tools: [getRepoContent],
   prompt: `You are an expert software engineer specializing in creating professional README files for GitHub repositories.
 
-  Your goal is to generate a comprehensive and accurate README file. To do this, you MUST first call the 'getRepoContent' tool to fetch the repository's file structure and the content of key files. This information is crucial for understanding the project's dependencies, scripts, and overall architecture.
+Your goal is to generate a comprehensive and accurate README file. To do this, you MUST first call the 'getRepoContent' tool to fetch the repository's file structure and the content of key files. This information is crucial for understanding the project's dependencies, scripts, and overall architecture.
 
-  Analyze the file structure and the content of all provided files to create the README.
+Analyze the file structure and the content of all provided files to create the README.
 
-  Repository Name: {{{repoName}}}
-  Repository Description: {{{repoDescription}}}
-  User Prompt: {{{prompt}}}
+Your primary instruction for the style, tone, and content of the README comes from the user's prompt. Use it to guide the entire generation process.
 
-  The README should include the following sections, based on the data you've fetched from the repository:
+Repository Name: {{{repoName}}}
+Repository Description: {{{repoDescription}}}
+User Prompt: {{{prompt}}}
 
-  - Project Title: The repository name.
-  - Project Description: A detailed explanation of the project's purpose and functionality. Use the repo description as a starting point, but expand on it using your analysis of the code.
-  - Tech Stack / Dependencies: List the main technologies and libraries used. You can infer this from 'package.json' or other dependency files.
-  - File Structure: Briefly explain the layout of the project directory.
-  - Getting Started / Installation: Provide clear, step-by-step instructions to install dependencies and get the project running. Look for scripts in 'package.json' (e.g., 'dev', 'start', 'build') or instructions in other files.
-  - Usage: Explain how to use the project after installation.
-  - Contribution Guidelines: Add a section with standard contribution guidelines.
-  - License: Add a placeholder for license information if not found.
+Based on your analysis and the user's prompt, the README should include the following sections:
 
-  Make sure the README is well-formatted in Markdown, easy to read, and professional.
-  Include code snippets where appropriate (e.g., installation commands, example usage).
-  Ensure that the response only includes the content of the README file itself.
-  `,
+- Project Title: The repository name.
+- Project Description: A detailed explanation of the project's purpose and functionality. Use the repo description as a starting point, but expand on it using your analysis of the code and the guidance from the user's prompt.
+- Tech Stack / Dependencies: List the main technologies and libraries used. You can infer this from 'package.json' or other dependency files.
+- File Structure: Briefly explain the layout of the project directory.
+- Getting Started / Installation: Provide clear, step-by-step instructions to install dependencies and get the project running. Look for scripts in 'package.json' (e.g., 'dev', 'start', 'build') or instructions in other files.
+- Usage: Explain how to use the project after installation.
+- Contribution Guidelines: Add a section with standard contribution guidelines.
+- License: Add a placeholder for license information if not found.
+
+Make sure the README is well-formatted in Markdown, easy to read, and professional.
+Include code snippets where appropriate (e.g., installation commands, example usage).
+Ensure that the response only includes the content of the README file itself.
+`,
 });
 
 const generateReadmeFlow = ai.defineFlow(
