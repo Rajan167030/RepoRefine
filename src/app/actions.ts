@@ -1,7 +1,8 @@
+
 'use server';
 
 import { generateReadme } from '@/ai/flows/generate-readme';
-import type { GenerateReadmeInput } from '@/ai/flows/generate-readme';
+import type { GenerateReadmeInput } from '@/ai/flows/readme.types';
 
 export async function handleGenerateReadme(input: GenerateReadmeInput) {
   try {

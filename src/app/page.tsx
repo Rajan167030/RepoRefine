@@ -1,8 +1,10 @@
+
 "use client";
 
 import { useState, useTransition } from "react";
 import { Github, Sparkles, Copy, Loader2, FileText, Eye } from "lucide-react";
 import { handleGenerateReadme } from "@/app/actions";
+import type { GenerateReadmeInput } from "@/ai/flows/readme.types";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -76,12 +78,14 @@ export default function Home() {
         return;
       }
       
-      const result = await handleGenerateReadme({
+      const input: GenerateReadmeInput = {
         repoName: selectedRepo.name,
         repoDescription: selectedRepo.description || "No description provided.",
         userName: username,
         prompt,
-      });
+      };
+
+      const result = await handleGenerateReadme(input);
 
       if (result.success && result.data) {
         setReadme(result.data.readmeContent);

@@ -1,26 +1,14 @@
-// src/ai/flows/generate-readme.ts
+
 'use server';
 /**
  * @fileOverview Generates a README file for a given GitHub repository based on a user-provided prompt.
  *
  * - generateReadme - A function that generates the README content.
- * - GenerateReadmeInput - The input type for the generateReadme function.
- * - GenerateReadmeOutput - The return type for the generateReadme function.
  */
 
 import {ai} from '@/ai/genkit';
-import {z} from 'genkit';
-
-// Tool Definition for getRepoContent
-const RepoContentInputSchema = z.object({
-  userName: z.string().describe('The GitHub username of the repository owner.'),
-  repoName: z.string().describe('The name of the GitHub repository.'),
-});
-
-const RepoContentOutputSchema = z.object({
-  tree: z.any().describe('The file and folder structure of the repository.'),
-  packageJson: z.string().optional().describe('The content of package.json, if it exists.'),
-});
+import { GenerateReadmeInputSchema, GenerateReadmeOutputSchema, type GenerateReadmeInput, type GenerateReadmeOutput } from './readme.types';
+import {z} from 'zod';
 
 function decodeBase64(encoded: string): string {
   return Buffer.from(encoded, 'base64').toString('utf-8');
@@ -30,8 +18,11 @@ const getRepoContent = ai.defineTool(
   {
     name: 'getRepoContent',
     description: 'Fetches the file and folder structure of a GitHub repository, along with the content of key files like package.json.',
-    inputSchema: RepoContentInputSchema,
-    outputSchema: RepoContentOutputSchema,
+    inputSchema: GenerateReadmeInputSchema.pick({ userName: true, repoName: true }),
+    outputSchema: z.object({
+      tree: z.any().describe('The file and folder structure of the repository.'),
+      packageJson: z.string().optional().describe('The content of package.json, if it exists.'),
+    }),
   },
   async ({ userName, repoName }) => {
     try {
@@ -83,23 +74,6 @@ const getRepoContent = ai.defineTool(
     }
   }
 );
-
-
-// Flow Definition for generateReadme
-const GenerateReadmeInputSchema = z.object({
-  repoDescription: z.string().describe('The description of the GitHub repository.'),
-  repoName: z.string().describe('The name of the GitHub repository.'),
-  userName: z.string().describe('The username of the GitHub repository owner.'),
-  prompt: z.string().describe('A prompt to guide the style and content of the README file.'),
-});
-
-export type GenerateReadmeInput = z.infer<typeof GenerateReadmeInputSchema>;
-
-const GenerateReadmeOutputSchema = z.object({
-  readmeContent: z.string().describe('The generated README file content.'),
-});
-
-export type GenerateReadmeOutput = z.infer<typeof GenerateReadmeOutputSchema>;
 
 const generateReadmePrompt = ai.definePrompt({
   name: 'generateReadmePrompt',
