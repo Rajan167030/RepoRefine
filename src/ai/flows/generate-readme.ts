@@ -10,6 +10,7 @@
 
 import {ai} from '@/ai/genkit';
 import {z} from 'genkit';
+import { getRepoContent, RepoContentInputSchema, RepoContentOutputSchema } from './get-repo-content';
 
 const GenerateReadmeInputSchema = z.object({
   repoDescription: z.string().describe('The description of the GitHub repository.'),
@@ -26,33 +27,35 @@ const GenerateReadmeOutputSchema = z.object({
 
 export type GenerateReadmeOutput = z.infer<typeof GenerateReadmeOutputSchema>;
 
-export async function generateReadme(input: GenerateReadmeInput): Promise<GenerateReadmeOutput> {
-  return generateReadmeFlow(input);
-}
-
 const generateReadmePrompt = ai.definePrompt({
   name: 'generateReadmePrompt',
   input: {schema: GenerateReadmeInputSchema},
   output: {schema: GenerateReadmeOutputSchema},
+  tools: [getRepoContent],
   prompt: `You are an expert software engineer specializing in creating professional README files for GitHub repositories.
 
-  Based on the repository description, name, and the user's prompt, generate a comprehensive README file.
+  Your goal is to generate a comprehensive and accurate README file. To do this, you MUST first call the 'getRepoContent' tool to fetch the repository's file structure and the content of key files like 'package.json'. This information is crucial for understanding the project's dependencies, scripts, and overall architecture.
+
+  Analyze the file structure, package.json content (if available), and the other provided details to create the README.
 
   Repository Name: {{{repoName}}}
   Repository Description: {{{repoDescription}}}
   User Prompt: {{{prompt}}}
 
-  The README should include the following sections, if applicable:
+  The README should include the following sections, based on the data you've fetched:
 
-  - Project Description: A detailed explanation of the project's purpose and functionality.
-  - Usage: Instructions on how to use the project.
-  - Contribution Guidelines: Information on how others can contribute to the project.
+  - Project Title: The repository name.
+  - Project Description: A detailed explanation of the project's purpose and functionality. Use the repo description as a starting point, but expand on it using your analysis of the code.
+  - Tech Stack / Dependencies: List the main technologies and libraries used. You can infer this from 'package.json'.
+  - File Structure: Briefly explain the layout of the project directory.
+  - Getting Started / Installation: Provide steps to install dependencies and get the project running. Look for scripts in 'package.json' (e.g., 'dev', 'start', 'build').
+  - Usage: Explain how to use the project.
+  - Contribution Guidelines: Information on how others can contribute.
   - License: Information about the project's license.
 
-  Make sure the README is well-formatted, easy to read, and professional.
-  Include code snippets where appropriate.
-  Write your response in markdown format.
-  Ensure that the response only includes the content of the README file.
+  Make sure the README is well-formatted in Markdown, easy to read, and professional.
+  Include code snippets where appropriate (e.g., installation commands).
+  Ensure that the response only includes the content of the README file itself.
   `,
 });
 
@@ -67,3 +70,8 @@ const generateReadmeFlow = ai.defineFlow(
     return output!;
   }
 );
+
+
+export async function generateReadme(input: GenerateReadmeInput): Promise<GenerateReadmeOutput> {
+  return generateReadmeFlow(input);
+}
