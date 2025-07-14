@@ -17,11 +17,14 @@ function decodeBase64(encoded: string): string {
 const getRepoContent = ai.defineTool(
   {
     name: 'getRepoContent',
-    description: 'Fetches the file and folder structure of a GitHub repository, along with the content of key files like package.json.',
+    description: 'Fetches the file and folder structure of a GitHub repository, along with the content of key source files.',
     inputSchema: GenerateReadmeInputSchema.pick({ userName: true, repoName: true }),
     outputSchema: z.object({
-      tree: z.any().describe('The file and folder structure of the repository.'),
-      packageJson: z.string().optional().describe('The content of package.json, if it exists.'),
+      tree: z.array(z.string()).describe('The file and folder structure of the repository.'),
+      files: z.array(z.object({
+        path: z.string(),
+        content: z.string(),
+      })).describe('An array of key files from the repository with their content.'),
     }),
   },
   async ({ userName, repoName }) => {
@@ -34,50 +37,68 @@ const getRepoContent = ai.defineTool(
         headers['Authorization'] = `Bearer ${process.env.GITHUB_ACCESS_TOKEN}`;
       }
 
-      // 1. Get the default branch
       const repoRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}`, { headers });
-      if (!repoRes.ok) throw new Error(`Failed to fetch repo details for ${userName}/${repoName}: ${await repoRes.text()}`);
+      if (!repoRes.ok) throw new Error(`Failed to fetch repo details: ${await repoRes.text()}`);
       const repoData = await repoRes.json();
       const defaultBranch = repoData.default_branch;
 
-      // 2. Get the commit SHA for the default branch
       const branchRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}/branches/${defaultBranch}`, { headers });
-      if (!branchRes.ok) throw new Error(`Failed to fetch branch details for ${userName}/${repoName}: ${await branchRes.text()}`);
+      if (!branchRes.ok) throw new Error(`Failed to fetch branch details: ${await branchRes.text()}`);
       const branchData = await branchRes.json();
       const treeSha = branchData.commit.commit.tree.sha;
 
-      // 3. Get the file tree recursively
       const treeRes = await fetch(`https://api.github.com/repos/${userName}/${repoName}/git/trees/${treeSha}?recursive=1`, { headers });
-      if (!treeRes.ok) throw new Error(`Failed to fetch file tree for ${userName}/${repoName}: ${await treeRes.text()}`);
+      if (!treeRes.ok) throw new Error(`Failed to fetch file tree: ${await treeRes.text()}`);
       const treeData = await treeRes.json();
 
-      // Filter out binary files for brevity and extract file paths
-      const fileTree = treeData.tree
-        .map((node: any) => node.path)
-        .filter((path: string) => !path.match(/\.(jpg|jpeg|png|gif|bmp|ico|svg|webp|pdf|zip|gz|rar|woff|woff2|eot|ttf|otf)$/i));
-
-      // 4. Find and fetch package.json if it exists
-      let packageJsonContent: string | undefined = undefined;
-      const packageJsonNode = treeData.tree.find((node: any) => node.path === 'package.json');
-
-      if (packageJsonNode && packageJsonNode.url) {
-        const packageJsonRes = await fetch(packageJsonNode.url, { headers });
-        if (packageJsonRes.ok) {
-          const packageJsonData = await packageJsonRes.json();
-          if (packageJsonData.content) {
-            packageJsonContent = decodeBase64(packageJsonData.content);
+      const allFilePaths = treeData.tree.map((node: any) => node.path);
+      
+      const keyFilePatterns = [
+        'package.json',
+        'README.md', 'readme.md',
+        'src/index.js', 'src/index.ts', 'src/index.tsx',
+        'src/main.js', 'src/main.ts', 'src/main.tsx',
+        'src/app/page.tsx', 'src/app/page.jsx', 'src/app/layout.tsx',
+        'vite.config.js', 'vite.config.ts',
+        'next.config.js', 'next.config.mjs',
+        'tailwind.config.js', 'tailwind.config.ts',
+        'firebase.json',
+        'public/index.html',
+        'Gemfile',
+        'requirements.txt',
+        'pom.xml',
+        'composer.json',
+        'Cargo.toml'
+      ];
+      
+      const filePromises = treeData.tree
+        .filter((node: any) => keyFilePatterns.includes(node.path) && node.type === 'blob' && node.url)
+        .map(async (node: any) => {
+          try {
+            const fileRes = await fetch(node.url, { headers });
+            if (!fileRes.ok) return null;
+            const fileData = await fileRes.json();
+            if (fileData.content) {
+              return {
+                path: node.path,
+                content: decodeBase64(fileData.content),
+              };
+            }
+          } catch (e) {
+            console.error(`Failed to fetch content for ${node.path}`, e);
           }
-        }
-      }
+          return null;
+        });
+
+      const files = (await Promise.all(filePromises)).filter(Boolean);
 
       return {
-        tree: fileTree,
-        packageJson: packageJsonContent,
+        tree: allFilePaths,
+        files: files as { path: string; content: string; }[],
       };
     } catch (error) {
       console.error('Error fetching repository content:', error);
-      // Re-throw to make the error visible in the UI
-      throw new Error(`Failed to fetch repository content. Please ensure the repository is public and your GitHub token (if provided) is valid. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to fetch repository content. Please ensure the repository is public and your GitHub token is valid. Error: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 );
@@ -89,27 +110,27 @@ const generateReadmePrompt = ai.definePrompt({
   tools: [getRepoContent],
   prompt: `You are an expert software engineer specializing in creating professional README files for GitHub repositories.
 
-  Your goal is to generate a comprehensive and accurate README file. To do this, you MUST first call the 'getRepoContent' tool to fetch the repository's file structure and the content of key files like 'package.json'. This information is crucial for understanding the project's dependencies, scripts, and overall architecture.
+  Your goal is to generate a comprehensive and accurate README file. To do this, you MUST first call the 'getRepoContent' tool to fetch the repository's file structure and the content of key files. This information is crucial for understanding the project's dependencies, scripts, and overall architecture.
 
-  Analyze the file structure, package.json content (if available), and the other provided details to create the README.
+  Analyze the file structure and the content of all provided files to create the README.
 
   Repository Name: {{{repoName}}}
   Repository Description: {{{repoDescription}}}
   User Prompt: {{{prompt}}}
 
-  The README should include the following sections, based on the data you've fetched:
+  The README should include the following sections, based on the data you've fetched from the repository:
 
   - Project Title: The repository name.
   - Project Description: A detailed explanation of the project's purpose and functionality. Use the repo description as a starting point, but expand on it using your analysis of the code.
-  - Tech Stack / Dependencies: List the main technologies and libraries used. You can infer this from 'package.json'.
+  - Tech Stack / Dependencies: List the main technologies and libraries used. You can infer this from 'package.json' or other dependency files.
   - File Structure: Briefly explain the layout of the project directory.
-  - Getting Started / Installation: Provide steps to install dependencies and get the project running. Look for scripts in 'package.json' (e.g., 'dev', 'start', 'build').
-  - Usage: Explain how to use the project.
-  - Contribution Guidelines: Information on how others can contribute.
-  - License: Information about the project's license.
+  - Getting Started / Installation: Provide clear, step-by-step instructions to install dependencies and get the project running. Look for scripts in 'package.json' (e.g., 'dev', 'start', 'build') or instructions in other files.
+  - Usage: Explain how to use the project after installation.
+  - Contribution Guidelines: Add a section with standard contribution guidelines.
+  - License: Add a placeholder for license information if not found.
 
   Make sure the README is well-formatted in Markdown, easy to read, and professional.
-  Include code snippets where appropriate (e.g., installation commands).
+  Include code snippets where appropriate (e.g., installation commands, example usage).
   Ensure that the response only includes the content of the README file itself.
   `,
 });
