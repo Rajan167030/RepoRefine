@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Github, Sparkles, Copy, Loader2 } from "lucide-react";
+import { Github, Sparkles, Copy, Loader2, FileText, Eye } from "lucide-react";
 import { handleGenerateReadme } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,6 +10,9 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 interface Repo {
   name: string;
@@ -174,33 +177,54 @@ export default function Home() {
             <CardHeader>
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <Sparkles />
-                  Preview & Edit
+                  <FileText />
+                  Generated README
                 </div>
                 <Button variant="ghost" size="icon" onClick={copyToClipboard} disabled={!readme} aria-label="Copy README content">
                   <Copy className="size-4" />
                 </Button>
               </CardTitle>
-              <CardDescription>Your generated README will appear here. You can edit it directly.</CardDescription>
+              <CardDescription>Preview, edit, and copy your generated README.</CardDescription>
             </CardHeader>
-            <CardContent className="flex-grow flex">
-              {isGenerating ? (
-                 <div className="w-full h-full flex items-center justify-center bg-muted/50 rounded-md min-h-[400px]">
-                    <div className="text-center space-y-2">
-                        <Loader2 className="mx-auto size-8 animate-spin text-primary" />
-                        <p className="text-muted-foreground">Generating your README...</p>
-                        <p className="text-sm text-muted-foreground/80">This might take a moment.</p>
-                    </div>
-                 </div>
-              ) : (
-                <Textarea
-                  className="w-full h-full min-h-[400px] flex-grow font-code text-base resize-none"
-                  placeholder="Your generated README will be displayed here..."
-                  value={readme}
-                  onChange={(e) => setReadme(e.target.value)}
-                  aria-label="README preview and editor"
-                />
-              )}
+            <CardContent className="flex-grow flex flex-col">
+                <Tabs defaultValue="edit" className="flex-grow flex flex-col">
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="edit"><FileText className="mr-2"/> Edit</TabsTrigger>
+                        <TabsTrigger value="preview"><Eye className="mr-2"/> Preview</TabsTrigger>
+                    </TabsList>
+                    {isGenerating ? (
+                        <div className="w-full flex-grow flex items-center justify-center bg-muted/50 rounded-md mt-2 min-h-[400px]">
+                            <div className="text-center space-y-2">
+                                <Loader2 className="mx-auto size-8 animate-spin text-primary" />
+                                <p className="text-muted-foreground">Generating your README...</p>
+                                <p className="text-sm text-muted-foreground/80">This might take a moment.</p>
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                        <TabsContent value="edit" className="flex-grow mt-0">
+                            <Textarea
+                                className="w-full h-full min-h-[400px] flex-grow font-code text-base resize-none mt-2"
+                                placeholder="Your generated README will be displayed here..."
+                                value={readme}
+                                onChange={(e) => setReadme(e.target.value)}
+                                aria-label="README preview and editor"
+                            />
+                        </TabsContent>
+                        <TabsContent value="preview" className="flex-grow mt-0">
+                            <div className="w-full h-full min-h-[400px] mt-2 rounded-md border bg-background p-4 prose dark:prose-invert max-w-none prose-sm sm:prose-base focus:outline-none">
+                                {readme ? (
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>{readme}</ReactMarkdown>
+                                ) : (
+                                    <div className="flex items-center justify-center h-full text-muted-foreground">
+                                        <p>Preview will appear here.</p>
+                                    </div>
+                                )}
+                            </div>
+                        </TabsContent>
+                        </>
+                    )}
+                </Tabs>
             </CardContent>
           </Card>
         </div>
